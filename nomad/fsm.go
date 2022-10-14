@@ -316,16 +316,8 @@ func (n *nomadFSM) Apply(log *raft.Log) interface{} {
 		return n.applyDeleteServiceRegistrationByNodeID(msgType, buf[1:], log.Index)
 	}
 
-	// Check enterprise only message types.
-	if applier, ok := n.enterpriseAppliers[msgType]; ok {
-		return applier(buf[1:], log.Index)
-	}
-
-	// We didn't match anything, either panic or ignore
-	if ignoreUnknown {
-		n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType)
-		return nil
-	}
+	n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType, ignoreUnknown)
+	return nil
 
 	panic(fmt.Errorf("failed to apply request: %#v", buf))
 }
@@ -1460,6 +1452,7 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		} else if err != nil {
 			return err
 		}
+		n.logger.Warn("decoding", "msg_type", msgType)
 
 		// Decode
 		snapType := SnapshotType(msgType[0])
@@ -1472,7 +1465,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case NodeSnapshot:
 			node := new(structs.Node)
 			if err := dec.Decode(node); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(node) {
 				node.Canonicalize() // Handle upgrade paths
@@ -1484,7 +1478,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case JobSnapshot:
 			job := new(structs.Job)
 			if err := dec.Decode(job); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(job) {
 				/* Handle upgrade paths:
@@ -1525,7 +1520,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case IndexSnapshot:
 			idx := new(state.IndexEntry)
 			if err := dec.Decode(idx); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if err := restore.IndexRestore(idx); err != nil {
 				return err
@@ -1611,7 +1607,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case ACLTokenSnapshot:
 			token := new(structs.ACLToken)
 			if err := dec.Decode(token); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(token) {
 				if err := restore.ACLTokenRestore(token); err != nil {
@@ -1622,7 +1619,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case SchedulerConfigSnapshot:
 			schedConfig := new(structs.SchedulerConfiguration)
 			if err := dec.Decode(schedConfig); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			schedConfig.Canonicalize()
 			if err := restore.SchedulerConfigRestore(schedConfig); err != nil {
@@ -1632,7 +1630,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case ClusterMetadataSnapshot:
 			meta := new(structs.ClusterMetadata)
 			if err := dec.Decode(meta); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if err := restore.ClusterMetadataRestore(meta); err != nil {
 				return err
@@ -1666,7 +1665,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case CSIPluginSnapshot:
 			plugin := new(structs.CSIPlugin)
 			if err := dec.Decode(plugin); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(plugin) {
 				if err := restore.CSIPluginRestore(plugin); err != nil {
@@ -1688,7 +1688,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case NamespaceSnapshot:
 			namespace := new(structs.Namespace)
 			if err := dec.Decode(namespace); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if err := restore.NamespaceRestore(namespace); err != nil {
 				return err
@@ -1711,16 +1712,7 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 			}
 
 		default:
-			// Check if this is an enterprise only object being restored
-			restorer, ok := n.enterpriseRestorers[snapType]
-			if !ok {
-				return fmt.Errorf("Unrecognized snapshot type: %v", msgType)
-			}
-
-			// Restore the enterprise only object
-			if err := restorer(restore, dec); err != nil {
-				return err
-			}
+			n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType)
 		}
 	}
 
