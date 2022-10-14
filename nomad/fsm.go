@@ -316,18 +316,9 @@ func (n *nomadFSM) Apply(log *raft.Log) interface{} {
 		return n.applyDeleteServiceRegistrationByNodeID(msgType, buf[1:], log.Index)
 	}
 
-	// Check enterprise only message types.
-	if applier, ok := n.enterpriseAppliers[msgType]; ok {
-		return applier(buf[1:], log.Index)
-	}
+    n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType, ignoreUnknown)
+    return nil
 
-	// We didn't match anything, either panic or ignore
-	if ignoreUnknown {
-		n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType)
-		return nil
-	}
-
-	panic(fmt.Errorf("failed to apply request: %#v", buf))
 }
 
 func (n *nomadFSM) applyClusterMetadata(buf []byte, index uint64) interface{} {
@@ -1711,16 +1702,7 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 			}
 
 		default:
-			// Check if this is an enterprise only object being restored
-			restorer, ok := n.enterpriseRestorers[snapType]
-			if !ok {
-				return fmt.Errorf("Unrecognized snapshot type: %v", msgType)
-			}
-
-			// Restore the enterprise only object
-			if err := restorer(restore, dec); err != nil {
-				return err
-			}
+            n.logger.Warn("ignoring unknown message type", "msg_type", msgType)
 		}
 	}
 
