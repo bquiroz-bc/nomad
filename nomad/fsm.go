@@ -203,7 +203,7 @@ func (n *nomadFSM) Apply(log *raft.Log) interface{} {
 	// Check if this message type should be ignored when unknown. This is
 	// used so that new commands can be added with developer control if older
 	// versions can safely ignore the command, or if they should crash.
-	ignoreUnknown := false
+	ignoreUnknown := true
 	if msgType&structs.IgnoreUnknownTypeFlag == structs.IgnoreUnknownTypeFlag {
 		msgType &= ^structs.IgnoreUnknownTypeFlag
 		ignoreUnknown = true
@@ -319,7 +319,7 @@ func (n *nomadFSM) Apply(log *raft.Log) interface{} {
 	n.logger.Warn("ignoring unknown message type, upgrade to newer version", "msg_type", msgType, ignoreUnknown)
 	return nil
 
-	panic(fmt.Errorf("failed to apply request: %#v", buf))
+	//panic(fmt.Errorf("failed to apply request: %#v", buf))
 }
 
 func (n *nomadFSM) applyClusterMetadata(buf []byte, index uint64) interface{} {
@@ -1459,7 +1459,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		switch snapType {
 		case TimeTableSnapshot:
 			if err := n.timetable.Deserialize(dec); err != nil {
-				return fmt.Errorf("time table deserialize failed: %v", err)
+				n.logger.Warn("time table deserialize failed", "msg_type", msgType)
+				continue
 			}
 
 		case NodeSnapshot:
@@ -1497,7 +1498,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case EvalSnapshot:
 			eval := new(structs.Evaluation)
 			if err := dec.Decode(eval); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(eval) {
 				if err := restore.EvalRestore(eval); err != nil {
@@ -1585,7 +1587,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case DeploymentSnapshot:
 			deployment := new(structs.Deployment)
 			if err := dec.Decode(deployment); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(deployment) {
 				if err := restore.DeploymentRestore(deployment); err != nil {
