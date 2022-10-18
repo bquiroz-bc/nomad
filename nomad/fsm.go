@@ -203,7 +203,7 @@ func (n *nomadFSM) Apply(log *raft.Log) interface{} {
 	// Check if this message type should be ignored when unknown. This is
 	// used so that new commands can be added with developer control if older
 	// versions can safely ignore the command, or if they should crash.
-	ignoreUnknown := true
+	ignoreUnknown := false
 	if msgType&structs.IgnoreUnknownTypeFlag == structs.IgnoreUnknownTypeFlag {
 		msgType &= ^structs.IgnoreUnknownTypeFlag
 		ignoreUnknown = true
