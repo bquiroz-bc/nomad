@@ -1491,7 +1491,7 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 				 */
 				job.Canonicalize()
 				if err := restore.JobRestore(job); err != nil {
-					return err
+					n.logger.Warn("error decoding", "msg_type", msgType)
 				}
 			}
 
@@ -1510,7 +1510,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case AllocSnapshot:
 			alloc := new(structs.Allocation)
 			if err := dec.Decode(alloc); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(alloc) {
 				alloc.Canonicalize() // Handle upgrade path
@@ -1532,7 +1533,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case PeriodicLaunchSnapshot:
 			launch := new(structs.PeriodicLaunch)
 			if err := dec.Decode(launch); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(launch) {
 				if err := restore.PeriodicLaunchRestore(launch); err != nil {
@@ -1543,7 +1545,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case JobSummarySnapshot:
 			summary := new(structs.JobSummary)
 			if err := dec.Decode(summary); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(summary) {
 				if err := restore.JobSummaryRestore(summary); err != nil {
@@ -1554,7 +1557,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case VaultAccessorSnapshot:
 			accessor := new(structs.VaultAccessor)
 			if err := dec.Decode(accessor); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(accessor) {
 				if err := restore.VaultAccessorRestore(accessor); err != nil {
@@ -1565,18 +1569,21 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case ServiceIdentityTokenAccessorSnapshot:
 			accessor := new(structs.SITokenAccessor)
 			if err := dec.Decode(accessor); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(accessor) {
 				if err := restore.SITokenAccessorRestore(accessor); err != nil {
-					return err
+					n.logger.Warn("error decoding", "msg_type", msgType)
+					continue
 				}
 			}
 
 		case JobVersionSnapshot:
 			version := new(structs.Job)
 			if err := dec.Decode(version); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(version) {
 				if err := restore.JobVersionRestore(version); err != nil {
