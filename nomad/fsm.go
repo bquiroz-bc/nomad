@@ -1712,7 +1712,8 @@ func (n *nomadFSM) restoreImpl(old io.ReadCloser, filter *FSMFilter) error {
 		case ServiceRegistrationSnapshot:
 			serviceRegistration := new(structs.ServiceRegistration)
 			if err := dec.Decode(serviceRegistration); err != nil {
-				return err
+				n.logger.Warn("error decoding", "msg_type", msgType)
+				continue
 			}
 			if filter.Include(serviceRegistration) {
 				// Perform the restoration.
